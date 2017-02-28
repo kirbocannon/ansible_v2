@@ -1,0 +1,10 @@
+---
+
+-
+  hosts: localhost
+  roles:
+    - 3850_CR
+  tasks:
+    - name: create base configuration for 3850 CR switches
+      template: src=roles/3850_CR/templates/3850_CR.j2 dest=/etc/ansible/generated_configurations/{{ item }}.txt
+      with_items: "{{ groups['switches'] }}"

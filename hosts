@@ -1,0 +1,2 @@
+[switches]
+RNTFG0020SW ansible_host=172.16.1.1
