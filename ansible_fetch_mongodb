@@ -1,0 +1,81 @@
+#!/usr/bin/env python
+#
+# MongoDB-backed dynamic inventory script for Ansible
+# http://docs.ansible.com/intro_dynamic_inventory.html
+
+import os
+
+from argparse import ArgumentParser
+from pymongo import MongoClient
+from bson import json_util
+import json
+
+
+
+def list_groups(db, query={}):
+    """Returns a dict of all the available groups to be managed
+    Group documents in Mongo are in the form:
+    {
+        name: 'foo',
+        hosts: ['bar.example.com', 'baz.example.com'],
+        vars: {
+            foo: 42,
+            bar: 'baz'
+        },
+        children: ['bar']
+    }
+    """
+    result = {}
+
+    cursor = db.groups.find(query, {
+        '_id': False,
+        'name': True,
+        'hosts': True,
+        'vars': True,
+        'children': True
+     })
+
+    for group in cursor:
+        result[group['name']] = {
+            'hosts': group.get('hosts', []),
+            'vars': group.get('vars', {}),
+            'children': group.get('children', [])
+        }
+
+    return json_util.dumps(result)
+
+def show_host(db, hostname):
+    """Returns a dict containing the variables for a specific host
+    Host documents in Mongo are in the form:
+    {
+        hostname: 'foo.example.com',
+        vars: {
+            foo: 42,
+            bar: 'baz'
+        }
+    }
+    """
+    cursor = db.hosts.find_one({'hostname': hostname},
+                               {'_id': False, 'vars': True})
+    return json_util.dumps(cursor.get('vars', {})) if cursor else '{}'
+
+def main():
+    port = 27017
+    server = '34.199.52.186'
+    connection = MongoClient(server, port)
+    db = connection.netDevices
+    parser = ArgumentParser()
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--list', dest='list', action='store_true')
+    group.add_argument('--host', dest='host', metavar='<hostname>')
+    args = parser.parse_args()
+
+    if args.list:
+        result = list_groups(db)
+    elif args.host:
+        result = show_host(db, args.host)
+
+    print(result)
+
+if __name__ == '__main__':
+    main()
